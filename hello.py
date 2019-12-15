@@ -7,8 +7,8 @@ from time import sleep
 import datetime
 
 from ev3dev2.motor import LargeMotor, OUTPUT_A, OUTPUT_D, SpeedPercent, SpeedRPM, MoveTank, MoveSteering
-from ev3dev2.sensor import INPUT_1, INPUT_4
-from ev3dev2.sensor.lego import TouchSensor
+from ev3dev2.sensor import INPUT_2, INPUT_3, INPUT_4
+from ev3dev2.sensor.lego import TouchSensor, UltrasonicSensor
 from ev3dev2.led import Leds
 from ev3dev2.button import Button
 from ev3dev2.sound import Sound
@@ -89,28 +89,34 @@ def drive():
     move = MoveSteering(OUTPUT_A, OUTPUT_D)
     move.on(steering=0, speed=normal_speed)
 
-    # Input 1 is on the right side and inpu 4 on the left side
-    touch_right = TouchSensor(INPUT_1)
-    touch_left = TouchSensor(INPUT_4)
+    ts = TouchSensor(INPUT_3)
+    ts2 = TouchSensor(INPUT_2)
+    ultra = UltrasonicSensor(INPUT_4)
 
     while True:
-        while not touch_right.is_pressed and not touch_left.is_pressed:
+        # 1. Check if hit a wall
+        while not ts.is_pressed and not ts2.is_pressed and ultra.distance_centimeters < 50:
             sleep(0.01)
+
+        # 2. Check if space on the right side
+        if ultra.distance_centimeters > 50:
+            move.on_for_degrees(steering=100, speed=slow_speed, degrees=180)
+            sound.speak("Going full speed")
+            move.on(steering=0, speed=normal_speed)
+            continue
 
         move.off()
 
         sound.speak("Found a wall")
 
-        move.on_for_rotations(steering=0, speed=-slow_speed, rotations=1)
-        move.on_for_degrees(steering=100, speed=slow_speed, degrees=90)
+        # Go back a bit so enough room to turn
+        move.on_for_degrees(steering=0, speed=-slow_speed, degrees=90)
 
-        move.on_for_rotations(steering=0, speed=slow_speed, rotations=1)
+        # Turn
+        move.on_for_degrees(steering=100, speed=-slow_speed, degrees=180)
 
-        if not touch_right.is_pressed and not touch_left.is_pressed:
-            sound.speak("Going full speed")
-            move.on(steering=0, speed=normal_speed)
-
-
+        sound.speak("Going full speed")
+        move.on(steering=0, speed=normal_speed)
 
 
 
